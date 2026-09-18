@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viimsi keskus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #000;
+    --amber: #ffb000;
+    --red: #ff4a1c;
+    --green: #3dff6e;
+    --dim: #6b4a00;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; cursor: none; }
+  body {
+    font-family: "Doto", ui-monospace, monospace;
+    font-weight: 900;
+    color: var(--amber);
+    display: flex;
+    flex-direction: column;
+    padding: 1.5vh 2vw 2vh;
+  }
+  /* LED-maatriksi võre üle kogu ekraani */
+  body::after {
+    content: "";
+    position: fixed; inset: 0;
+    pointer-events: none;
+    background: radial-gradient(circle, transparent 55%, rgba(0,0,0,.55) 75%) 0 0 / 4px 4px;
+  }
+
+  .status {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    font-size: min(4.2vh, 3.2vw);
+    line-height: 1;
+    height: 5vh;
+    color: var(--amber);
+    opacity: .85;
+  }
+  .status .stop { color: var(--dim); }
+  .status .right { display: flex; gap: 3vw; }
+  .status .clock { color: var(--amber); }
+
+  .board {
+    flex: 1;
+    display: grid;
+    grid-template-rows: repeat(3, 1fr);
+    min-height: 0;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    column-gap: .35em;
+    line-height: 1;
+    white-space: nowrap;
+    min-width: 0;
+    text-shadow: 0 0 .08em currentColor;
+  }
+  .row + .row { border-top: .4vh dotted #2a1d00; }
+  .route { color: var(--red); min-width: 2ch; text-align: right; }
+  .dest { overflow: hidden; text-overflow: clip; color: var(--amber); }
+  .time { text-align: right; color: var(--amber); }
+  .time.live { color: var(--green); }
+  .time.now { animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: .15; } }
+
+  .message {
+    grid-row: 1 / -1;
+    align-self: center;
+    text-align: center;
+    font-size: 8vh;
+    color: var(--dim);
+  }
+</style>
+</head>
+<body>
+  <div class="status">
+    <span class="stop">VIIMSI KESKUS</span>
+    <span class="right">
+      <span id="temp">--°C</span>
+      <span id="wind">-- m/s</span>
+      <span class="clock" id="clock">--:--</span>
+    </span>
+  </div>
+  <div class="board" id="board"></div>
+
+<script src="schedule.js"></script>
+<script>
+const STOP_ID = 9811;
+const LAT = 59.509, LON = 24.830;
+const SIRI_URL = `https://transport.tallinn.ee/siri-stop-departures.php?stopid=${STOP_ID}`;
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+  `&current=temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=Europe%2FTallinn`;
+const ROWS = 3;
+const SIRI_MAX_AGE = 120 * 1000;
+
+let siri = { at: 0, deps: [] };
+
+// ---- Sõiduplaan (GTFS) ----
+
+function ymd(d) {
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+// Kõik plaanijärgsed väljumised eilse, tänase ja homse sõidupäeva kohta.
+// Eilne on vajalik, sest öised ajad on kujul 24:xx–27:xx.
+function scheduledDepartures(now) {
+  const out = [];
+  for (const offset of [-1, 0, 1]) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    const date = ymd(day);
+    const weekday = (day.getDay() + 6) % 7; // 0 = esmaspäev
+    for (const svc of Object.values(window.SCHEDULE)) {
+      if (date < +svc.start || date > +svc.end || !svc.days[weekday]) continue;
+      for (const [secs, route, dest] of svc.dep) {
+        out.push({ t: day.getTime() + secs * 1000, sched: secs % 86400, route, dest, live: false });
+      }
+    }
+  }
+  return out;
+}
+
+// ---- Reaalaeg (TLT SIRI) ----
+// Vorming: päis, "stop,<id>", seejärel read
+// transport,liin,oodatavAeg_s,plaaniAeg_s,sihtkoht,sekundeidJäänud,lipp
+
+async function loadSiri() {
+  try {
+    const res = await fetch(SIRI_URL, { cache: "no-store" });
+    const lines = (await res.text()).trim().split("\n").map(l => l.split(","));
+    const fetched = Date.now();
+    const deps = lines.slice(2)
+      .filter(f => f.length >= 6)
+      .map(([, route, expected, scheduled, dest, left]) => ({
+        t: fetched + (+left) * 1000,
+        sched: (+scheduled) % 86400,
+        route, dest,
+        live: true,
+      }));
+    siri = { at: fetched, deps };
+  } catch (e) {
+    console.warn("SIRI päring ebaõnnestus", e);
+  }
+}
+
+function upcoming(now) {
+  const nowMs = now.getTime();
+  let list = scheduledDepartures(now);
+  if (nowMs - siri.at < SIRI_MAX_AGE) {
+    // SIRI plaaniaeg on sekunditäpsusega, GTFS-is täisminutid: seome ±3 min piires.
+    const matches = (g, s) => g.route === s.route &&
+      Math.abs(((g.sched - s.sched + 43200 + 86400) % 86400) - 43200) <= 180;
+    list = list.filter(g => !siri.deps.some(s => matches(g, s))).concat(siri.deps);
+  }
+  return list
+    .filter(d => d.t >= nowMs - 15000)
+    .sort((a, b) => a.t - b.t)
+    .slice(0, ROWS);
+}
+
+// ---- Joonistamine ----
+
+const pad = n => String(n).padStart(2, "0");
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+function timeLabel(dep, nowMs) {
+  const min = Math.floor((dep.t - nowMs) / 60000);
+  if (min < 1) return { text: "kohe", now: true };
+  if (min < 60) return { text: `${min} min`, now: false };
+  return { text: hhmm(new Date(dep.t)), now: false };
+}
+
+const board = document.getElementById("board");
+let lastHtml = "";
+
+function render() {
+  const now = new Date();
+  document.getElementById("clock").textContent = hhmm(now);
+
+  const deps = upcoming(now);
+  let html;
+  if (!deps.length) {
+    html = `<div class="message">Sõiduplaan puudub</div>`;
+  } else {
+    html = deps.map(d => {
+      const l = timeLabel(d, now.getTime());
+      const cls = ["time", d.live ? "live" : "", l.now ? "now" : ""].join(" ");
+      return `<div class="row"><span class="route">${d.route}</span>` +
+             `<span class="dest">${d.dest}</span>` +
+             `<span class="${cls}">${l.text}</span></div>`;
+    }).join("");
+  }
+  if (html !== lastHtml) {
+    board.innerHTML = html;
+    lastHtml = html;
+    fit();
+  }
+}
+
+// Suurim kirjasuurus, mille juures kõik read mahuvad laiusesse ja kõrgusesse.
+function fit() {
+  const rows = [...board.querySelectorAll(".row")];
+  if (!rows.length) return;
+  const rowH = board.clientHeight / ROWS;
+  let size = rowH * 0.78;
+  const apply = () => rows.forEach(r => r.style.fontSize = size + "px");
+  apply();
+  const overflows = () => rows.some(r => {
+    const [route, dest, time] = r.children;
+    return route.scrollWidth + dest.scrollWidth + time.scrollWidth + size * 0.7 > r.clientWidth;
+  });
+  while (overflows() && size > 10) { size *= 0.95; apply(); }
+}
+
+// ---- Ilm (Open-Meteo) ----
+
+async function loadWeather() {
+  try {
+    const res = await fetch(WEATHER_URL, { cache: "no-store" });
+    const { current } = await res.json();
+    document.getElementById("temp").textContent = `${Math.round(current.temperature_2m)}°C`;
+    document.getElementById("wind").textContent = `${Math.round(current.wind_speed_10m)} m/s`;
+  } catch (e) {
+    console.warn("Ilma päring ebaõnnestus", e);
+  }
+}
+
+// ---- Käivitus ----
+
+document.addEventListener("click", () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+});
+window.addEventListener("resize", () => { lastHtml = ""; render(); });
+document.fonts?.ready.then(() => { lastHtml = ""; render(); });
+
+loadSiri().then(render);
+loadWeather();
+render();
+setInterval(render, 1000);
+setInterval(loadSiri, 20 * 1000);
+setInterval(loadWeather, 10 * 60 * 1000);
+</script>
+</body>
+</html>
