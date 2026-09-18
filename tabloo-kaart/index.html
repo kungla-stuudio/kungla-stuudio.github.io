@@ -1,0 +1,507 @@
+<!doctype html>
+<html lang="et">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Viimsi liinikaart</title>
+<meta name="description" content="Viimsi keskuse järgmised bussiväljumised ja liinide 1, 49 ja 95 bussid kaardil reaalajas.">
+<meta name="theme-color" content="#000000">
+
+<!-- Favicon -->
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+<!-- Open Graph (Facebook, Messenger, Slack, WhatsApp jne) -->
+<!-- NB! og:url ja og:image peavad olema täispikad aadressid: asenda SINU-DOMEEN.ee oma aadressiga -->
+<meta property="og:type" content="website">
+<meta property="og:locale" content="et_EE">
+<meta property="og:site_name" content="Viimsi bussitabloo">
+<meta property="og:title" content="Viimsi bussitabloo">
+<meta property="og:description" content="Järgmised väljumised Viimsi keskusest ja bussid kaardil reaalajas.">
+<meta property="og:url" content="https://SINU-DOMEEN.ee/tabloo-kaart/">
+<meta property="og:image" content="https://SINU-DOMEEN.ee/tabloo-kaart/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="LED-tabloo stiilis Viimsi keskuse väljumised ja liinikaart">
+
+<!-- X / Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Viimsi bussitabloo">
+<meta name="twitter:description" content="Järgmised väljumised Viimsi keskusest ja bussid kaardil reaalajas.">
+<meta name="twitter:image" content="https://SINU-DOMEEN.ee/tabloo-kaart/og-image.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+  :root {
+    --bg: #000;
+    --amber: #ffb000;
+    --green: #3dff6e;
+    --dim: #6b4a00;
+    --route-1: #ffb000;
+    --route-49: #00e5ff;
+    --route-95: #ff3df0;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); overflow: hidden; cursor: none; }
+  body { font-family: "Doto", ui-monospace, monospace; font-weight: 900; color: var(--amber); }
+
+  #map { position: absolute; inset: 0; background: #000; }
+  /* OSM aluskaart mustvalgeks ja tumedaks */
+  .leaflet-tile-pane { filter: grayscale(1) invert(1) brightness(.9) contrast(.9); }
+  .leaflet-control-attribution {
+    background: rgba(0,0,0,.6) !important; color: #555 !important;
+    font: 10px system-ui, sans-serif;
+  }
+  .leaflet-control-attribution a { color: #777 !important; }
+
+  /* ---- Peatused ---- */
+  .home-label {
+    background: #000; border: 2px solid var(--green); color: var(--green);
+    font-family: "Doto", monospace; font-weight: 900; font-size: 18px;
+    padding: 2px 8px; border-radius: 0; box-shadow: 0 0 12px rgba(61,255,110,.5);
+  }
+  .home-label::before { display: none; }
+  .home-pulse {
+    width: 28px; height: 28px; border-radius: 50%;
+    border: 3px solid var(--green);
+    animation: pulse 2s ease-out infinite;
+  }
+  @keyframes pulse {
+    0% { transform: scale(.4); opacity: 1; }
+    100% { transform: scale(1.6); opacity: 0; }
+  }
+
+  /* ---- Bussid ---- */
+  .bus { transition: transform 4.5s linear; }
+  .leaflet-zoom-anim .bus { transition: none; }
+  .bus-body { position: relative; width: 64px; height: 64px; }
+  /* Pealtvaates buss, esiots (tuuleklaas + tuled) näitab sõidusuunda */
+  .bus-rot { position: absolute; inset: 0; }
+  .bus-rot svg {
+    position: absolute; left: 50%; top: 50%;
+    width: 32px; height: 64px;
+    transform: translate(-50%, -50%);
+    filter: drop-shadow(0 0 4px var(--c));
+    overflow: visible;
+  }
+  /* Number jääb alati püsti, ükskõik kuhu buss pöörab */
+  .bus-num {
+    position: absolute; left: 50%; top: 50%; z-index: 1;
+    transform: translate(-50%, -50%);
+    min-width: 26px; height: 22px; padding: 0 3px;
+    display: grid; place-items: center;
+    background: #000; color: var(--c);
+    border: 1.5px solid var(--c); border-radius: 4px;
+    font-family: system-ui, sans-serif; font-weight: 800; font-size: 15px; line-height: 1;
+    letter-spacing: -.02em;
+  }
+  .bus-eta {
+    position: absolute; left: 52px; top: 21px;
+    white-space: nowrap;
+    background: #000; color: var(--c); border: 1px solid var(--c);
+    font-family: "Doto", monospace; font-weight: 900; font-size: 16px; line-height: 1;
+    padding: 2px 5px;
+  }
+
+  /* ---- Infopaneel ---- */
+  .panel {
+    position: absolute; top: 2vh; right: 1.5vw; z-index: 1000;
+    width: clamp(340px, 34vw, 620px);
+    container-type: inline-size;
+    background: rgba(0,0,0,.88);
+    border: 2px solid #2a1d00;
+    padding: 1.4vh 1.4vw 1.6vh;
+    text-shadow: 0 0 .08em currentColor;
+  }
+  .panel::after {
+    content: ""; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(circle, transparent 55%, rgba(0,0,0,.5) 75%) 0 0 / 4px 4px;
+  }
+  .status {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 4.6cqi; color: var(--dim);
+    padding-bottom: 1vh; border-bottom: 2px dotted #2a1d00; margin-bottom: .6vh;
+  }
+  .status .right { display: flex; gap: 1.2vw; color: var(--amber); }
+  .dep {
+    display: grid; grid-template-columns: 2.3ch 1fr auto; column-gap: .45em;
+    align-items: center; white-space: nowrap;
+    font-size: 7.4cqi; line-height: 1.25;
+  }
+  .dep .route { text-align: right; color: var(--rc); }
+  .dep .dest { overflow: hidden; }
+  .dep .time { text-align: right; }
+  .dep .time.live { color: var(--green); }
+  .dep .time.now { animation: blink 1s steps(1) infinite; }
+  .empty { font-size: 5cqi; color: var(--dim); padding: 1vh 0; }
+  @keyframes blink { 50% { opacity: .15; } }
+</style>
+</head>
+<body>
+  <div id="map"></div>
+
+  <div class="panel">
+    <div class="status">
+      <span>VIIMSI KESKUS</span>
+      <span class="right">
+        <span id="temp">--°C</span>
+        <span id="wind">-- m/s</span>
+        <span id="clock">--:--</span>
+      </span>
+    </div>
+    <div id="deps"></div>
+  </div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="network.js"></script>
+<script src="schedule.js"></script>
+<script>
+const HOME_STOP = "9811";
+const LAT = 59.509, LON = 24.830;
+const ROUTE_COLORS = { "1": "#ffb000", "49": "#00e5ff", "95": "#ff3df0" };
+const SIRI_URL = `https://transport.tallinn.ee/siri-stop-departures.php?stopid=${HOME_STOP}`;
+const GPS_URL = "gps.php"; // vahendab TLT GPS-voogu (CORS)
+const WEATHER_URL = `https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}` +
+  `&current=temperature_2m,wind_speed_10m&wind_speed_unit=ms&timezone=Europe%2FTallinn`;
+const ROWS = 3;
+const SIRI_MAX_AGE = 120 * 1000;
+
+const home = NETWORK.stops[HOME_STOP];
+
+// =====================================================================
+// Kaart
+// =====================================================================
+
+const map = L.map("map", {
+  zoomControl: false,
+  attributionControl: true,
+  zoomSnap: 0.25,
+});
+L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+}).addTo(map);
+
+// Liinid: kõigepealt tumedad "varjud", siis värvilised jooned.
+// Öine 95 joonistatakse viimasena katkendjoonena, et ühisel lõigul paistaks ka teine liin.
+const allBounds = L.latLngBounds([]);
+const drawOrder = Object.keys(NETWORK.routes).sort((a, b) => (a === "95") - (b === "95"));
+const lines = drawOrder.flatMap(num =>
+  NETWORK.routes[num].shapes.map(s => ({ num, latlngs: s.pts.map(([lat, lon]) => [lat, lon]) })));
+for (const { latlngs } of lines) {
+  L.polyline(latlngs, { color: "#000", weight: 10, opacity: .7, interactive: false }).addTo(map);
+  latlngs.forEach(p => allBounds.extend(p));
+}
+for (const { num, latlngs } of lines) {
+  L.polyline(latlngs, {
+    color: ROUTE_COLORS[num], weight: 5, opacity: .95, interactive: false,
+    dashArray: num === "95" ? "8 10" : null,
+    lineCap: num === "95" ? "butt" : "round",
+  }).addTo(map);
+}
+
+// Peatused: väikesed punktid joone peal; välja suumides muutuvad veel väiksemaks
+const stopMarkers = [];
+for (const [id, s] of Object.entries(NETWORK.stops)) {
+  if (id === HOME_STOP) continue;
+  stopMarkers.push(L.circleMarker([s.lat, s.lon], {
+    radius: 2, color: "#000", weight: 1, fillColor: "#fff", fillOpacity: 1,
+  }).bindTooltip(s.name, { direction: "top" }).addTo(map));
+}
+function scaleStops() {
+  const z = map.getZoom();
+  const r = z >= 15 ? 4.5 : z >= 13 ? 3 : 2;
+  stopMarkers.forEach(m => m.setRadius(r));
+}
+map.on("zoomend", scaleStops);
+
+// Kodupeatus
+L.marker([home.lat, home.lon], {
+  icon: L.divIcon({ className: "", html: '<div class="home-pulse"></div>', iconSize: [28, 28] }),
+  interactive: false,
+}).addTo(map);
+L.circleMarker([home.lat, home.lon], {
+  radius: 7, color: "#3dff6e", weight: 3, fillColor: "#000", fillOpacity: 1,
+}).bindTooltip("VIIMSI KESKUS", {
+  permanent: true, direction: "left", offset: [-14, 0], className: "home-label",
+}).addTo(map);
+
+function fitMap() {
+  const panel = document.querySelector(".panel");
+  map.fitBounds(allBounds, {
+    paddingTopLeft: [30, 30],
+    paddingBottomRight: [panel.offsetWidth + 40, 30],
+  });
+}
+fitMap();
+scaleStops();
+window.addEventListener("resize", () => { map.invalidateSize(); fitMap(); });
+
+// =====================================================================
+// Sõiduaeg kodupeatuseni
+// =====================================================================
+
+// Ligikaudne meetrikaugus (Tallinna laiuskraadil piisavalt täpne)
+function meters(aLat, aLon, bLat, bLon) {
+  const x = (bLon - aLon) * 111320 * Math.cos(aLat * Math.PI / 180);
+  const y = (bLat - aLat) * 110540;
+  return Math.hypot(x, y);
+}
+
+// Punkti projektsioon marsruudi lõikudele.
+// Tagastab kauguse joonest (d) ja läbitud teepikkuse marsruudi algusest (along).
+function project(pts, lat, lon) {
+  const kx = 111320 * Math.cos(lat * Math.PI / 180), ky = 110540;
+  let best = { d: Infinity, along: 0 };
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [aLat, aLon, aDist] = pts[i], [bLat, bLon, bDist] = pts[i + 1];
+    const ax = (aLon - lon) * kx, ay = (aLat - lat) * ky;
+    const dx = (bLon - aLon) * kx, dy = (bLat - aLat) * ky;
+    const len2 = dx * dx + dy * dy;
+    const t = len2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / len2)) : 0;
+    const d = Math.hypot(ax + t * dx, ay + t * dy);
+    if (d < best.d) best = { d, along: aDist + t * (bDist - aDist) };
+  }
+  return best;
+}
+
+// Iga kuju jaoks eelarvutatud kodupeatuse asukoht marsruudil
+// (liin 1 sõidab Viimsi suunas paralleelset tänavat pidi, seega lubame 300 m)
+for (const route of Object.values(NETWORK.routes)) {
+  for (const shape of route.shapes) {
+    const p = project(shape.pts, home.lat, home.lon);
+    shape.homeAlong = p.d < 300 ? p.along : null;
+  }
+}
+
+const norm = s => s.toLowerCase().replace(/\s+/g, " ").trim();
+
+// Sõiduplaani järgi kulunud sekundid marsruudi alguspunktist antud teepikkuseni.
+// Profiil valitakse kellaaja järgi, et tipptunni aeglasem liiklus oleks arvesse võetud.
+function elapsedAt(shape, along, hour) {
+  const hours = Object.keys(shape.time).map(Number);
+  const circ = h => Math.min(Math.abs(h - hour), 24 - Math.abs(h - hour));
+  const prof = shape.time[hours.reduce((a, b) => circ(b) < circ(a) ? b : a)];
+  if (along <= prof[0][0]) return prof[0][1];
+  for (let i = 1; i < prof.length; i++) {
+    const [d1, t1] = prof[i];
+    if (along <= d1) {
+      const [d0, t0] = prof[i - 1];
+      return t0 + (d1 > d0 ? (along - d0) / (d1 - d0) : 0) * (t1 - t0);
+    }
+  }
+  return prof[prof.length - 1][1];
+}
+
+// Minuteid kodupeatusse jõudmiseni, kui buss on sinna teel; muidu null.
+function minutesToHome(bus) {
+  const route = NETWORK.routes[bus.route];
+  if (!route) return null;
+  // Eelista kuju, mille sihtkoht vastab bussi sihtkohale
+  const byDest = route.shapes.filter(s => norm(s.headsign) === norm(bus.dest));
+  const shapes = byDest.length ? byDest : route.shapes;
+  const hour = new Date().getHours();
+  let best = null;
+  for (const shape of shapes) {
+    if (shape.homeAlong === null) continue;
+    const p = project(shape.pts, bus.lat, bus.lon);
+    if (p.d > 60 || shape.homeAlong - p.along < 30) continue;
+    const secs = elapsedAt(shape, shape.homeAlong, hour) - elapsedAt(shape, p.along, hour);
+    if (best === null || secs < best) best = secs;
+  }
+  return best === null ? null : Math.max(0, Math.round(best / 60));
+}
+
+const formatMinutes = min => min < 1 ? "kohe" : `${min} min`;
+
+// =====================================================================
+// Bussid reaalajas (TLT GPS)
+// Vorming: tüüp,liin,lon*1e6,lat*1e6,,suund,sõidukiId,lipp,?,sihtkoht
+// =====================================================================
+
+const buses = new Map(); // sõiduki id -> marker
+
+// Buss pealtvaates, esiots üleval (põhja suunas); pööratakse GPS-i suuna järgi.
+const BUS_SVG = `<svg viewBox="0 0 26 52" aria-hidden="true">
+  <polygon points="8,3 13,-5 18,3" fill="var(--c)" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/>
+  <rect x="2" y="3" width="22" height="46" rx="5" fill="var(--c)" stroke="#000" stroke-width="2"/>
+  <path d="M5 13 Q13 7 21 13 L21 16 L5 16 Z" fill="#000" opacity=".8"/>
+  <circle cx="6.5" cy="6.5" r="1.8" fill="#fff"/>
+  <circle cx="19.5" cy="6.5" r="1.8" fill="#fff"/>
+  <rect x="7" y="44" width="12" height="2.5" rx="1" fill="#000" opacity=".6"/>
+</svg>`;
+
+function busIcon(bus, min) {
+  const label = min !== null ? `<div class="bus-eta">${formatMinutes(min)}</div>` : "";
+  return L.divIcon({
+    className: "bus",
+    iconSize: [64, 64],
+    iconAnchor: [32, 32],
+    html: `<div class="bus-body" style="--c:${ROUTE_COLORS[bus.route]}">` +
+          `<div class="bus-rot" style="transform:rotate(${bus.heading}deg)">${BUS_SVG}</div>` +
+          `<div class="bus-num">${bus.route}</div>${label}</div>`,
+  });
+}
+
+async function loadGps() {
+  try {
+    const res = await fetch(GPS_URL, { cache: "no-store" });
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    const seen = new Set();
+    for (const line of text.trim().split("\n")) {
+      const f = line.split(",");
+      if (f[0] !== "2" || !ROUTE_COLORS[f[1]]) continue;
+      const bus = {
+        route: f[1],
+        lon: +f[2] / 1e6,
+        lat: +f[3] / 1e6,
+        heading: +f[5] || 0,
+        id: f[6],
+        dest: f[9] || "",
+      };
+      seen.add(bus.id);
+      const min = minutesToHome(bus);
+      const iconKey = `${bus.route}|${bus.heading}|${min === null ? "" : min}`;
+      let marker = buses.get(bus.id);
+      if (!marker) {
+        marker = L.marker([bus.lat, bus.lon], { icon: busIcon(bus, min), zIndexOffset: min === null ? 1000 : 2000, interactive: false }).addTo(map);
+        marker.iconKey = iconKey;
+        buses.set(bus.id, marker);
+      } else {
+        marker.setLatLng([bus.lat, bus.lon]);
+        if (marker.iconKey !== iconKey) {
+          marker.setIcon(busIcon(bus, min));
+          marker.setZIndexOffset(min === null ? 1000 : 2000);
+          marker.iconKey = iconKey;
+        }
+      }
+    }
+    for (const [id, marker] of buses) {
+      if (!seen.has(id)) { marker.remove(); buses.delete(id); }
+    }
+  } catch (e) {
+    console.warn("GPS päring ebaõnnestus", e);
+  }
+}
+
+// =====================================================================
+// Väljumised (GTFS + SIRI), sama loogika nagu esimeses tahvlis
+// =====================================================================
+
+let siri = { at: 0, deps: [] };
+
+function ymd(d) {
+  return d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+}
+
+function scheduledDepartures(now) {
+  const out = [];
+  for (const offset of [-1, 0, 1]) {
+    const day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+    const date = ymd(day);
+    const weekday = (day.getDay() + 6) % 7;
+    for (const svc of Object.values(window.SCHEDULE)) {
+      if (date < +svc.start || date > +svc.end || !svc.days[weekday]) continue;
+      for (const [secs, route, dest] of svc.dep) {
+        out.push({ t: day.getTime() + secs * 1000, sched: secs % 86400, route, dest, live: false });
+      }
+    }
+  }
+  return out;
+}
+
+async function loadSiri() {
+  try {
+    const res = await fetch(SIRI_URL, { cache: "no-store" });
+    const lines = (await res.text()).trim().split("\n").map(l => l.split(","));
+    const fetched = Date.now();
+    const deps = lines.slice(2)
+      .filter(f => f.length >= 6)
+      .map(([, route, , scheduled, dest, left]) => ({
+        t: fetched + (+left) * 1000,
+        sched: (+scheduled) % 86400,
+        route, dest, live: true,
+      }));
+    siri = { at: fetched, deps };
+  } catch (e) {
+    console.warn("SIRI päring ebaõnnestus", e);
+  }
+}
+
+function upcoming(now) {
+  const nowMs = now.getTime();
+  let list = scheduledDepartures(now);
+  if (nowMs - siri.at < SIRI_MAX_AGE) {
+    const matches = (g, s) => g.route === s.route &&
+      Math.abs(((g.sched - s.sched + 43200 + 86400) % 86400) - 43200) <= 180;
+    list = list.filter(g => !siri.deps.some(s => matches(g, s))).concat(siri.deps);
+  }
+  return list.filter(d => d.t >= nowMs - 15000).sort((a, b) => a.t - b.t).slice(0, ROWS);
+}
+
+const pad = n => String(n).padStart(2, "0");
+const hhmm = d => `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+function timeLabel(dep, nowMs) {
+  const min = Math.floor((dep.t - nowMs) / 60000);
+  if (min < 1) return { text: "kohe", now: true };
+  if (min < 60) return { text: `${min} min`, now: false };
+  return { text: hhmm(new Date(dep.t)), now: false };
+}
+
+const depsEl = document.getElementById("deps");
+let lastHtml = "";
+
+function render() {
+  const now = new Date();
+  document.getElementById("clock").textContent = hhmm(now);
+  const deps = upcoming(now);
+  const html = deps.length ? deps.map(d => {
+    const l = timeLabel(d, now.getTime());
+    const cls = ["time", d.live ? "live" : "", l.now ? "now" : ""].join(" ");
+    return `<div class="dep" style="--rc:${ROUTE_COLORS[d.route] || "#ffb000"}">` +
+           `<span class="route">${d.route}</span><span class="dest">${d.dest}</span>` +
+           `<span class="${cls}">${l.text}</span></div>`;
+  }).join("") : `<div class="empty">Sõiduplaan puudub</div>`;
+  if (html !== lastHtml) { depsEl.innerHTML = html; lastHtml = html; }
+}
+
+// =====================================================================
+// Ilm (Open-Meteo)
+// =====================================================================
+
+async function loadWeather() {
+  try {
+    const res = await fetch(WEATHER_URL, { cache: "no-store" });
+    const { current } = await res.json();
+    document.getElementById("temp").textContent = `${Math.round(current.temperature_2m)}°C`;
+    document.getElementById("wind").textContent = `${Math.round(current.wind_speed_10m)} m/s`;
+  } catch (e) {
+    console.warn("Ilma päring ebaõnnestus", e);
+  }
+}
+
+// =====================================================================
+// Käivitus
+// =====================================================================
+
+document.addEventListener("dblclick", () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen?.();
+  else document.exitFullscreen?.();
+});
+document.fonts?.ready.then(fitMap);
+
+loadSiri().then(render);
+loadGps();
+loadWeather();
+render();
+setInterval(render, 1000);
+setInterval(loadGps, 5 * 1000);
+setInterval(loadSiri, 20 * 1000);
+setInterval(loadWeather, 10 * 60 * 1000);
+</script>
+</body>
+</html>
