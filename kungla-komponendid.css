@@ -1,0 +1,165 @@
+@import url("https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Instrument+Serif:ital@0;1&display=swap");
+
+/* Kungla Koolitused — komponendid
+   Eeldab muutujaid failist kungla-tokens.css (:root). Klassid algavad „kk-“. */
+
+/* ── Alus ─────────────────────────────────────────── */
+body {
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-body);
+  line-height: var(--leading-body);
+  -webkit-font-smoothing: antialiased;
+}
+.kk-h1, .kk-h2 {
+  font-family: var(--font-heading);
+  font-weight: 400;
+  font-synthesis: none;            /* Instrument Serifil pole poolpaksu lõiget */
+  color: var(--color-primary);
+  margin: 0;
+}
+.kk-h1 { font-size: var(--text-h1); line-height: var(--leading-h1); letter-spacing: -0.01em; }
+.kk-h2 { font-size: var(--text-h2); line-height: var(--leading-h2); }
+.kk-h1 em, .kk-h2 em { font-style: italic; color: var(--color-accent); }
+.kk-h3 { font-family: var(--font-body); font-size: var(--text-h3); line-height: var(--leading-h3); font-weight: 600; color: var(--color-primary); margin: 0; }
+.kk-lead { font-size: var(--text-lead); line-height: 1.55; max-width: var(--measure); }
+.kk-small { font-size: var(--text-small); line-height: var(--leading-small); color: var(--color-text-muted); }
+.kk-eyebrow { font-size: var(--text-small); font-weight: 600; color: var(--color-accent); letter-spacing: 0.02em; }
+a { color: var(--color-primary); text-underline-offset: 3px; }
+a:hover { color: var(--color-accent); }
+
+/* Fookus: ühtne kõigil interaktiivsetel elementidel */
+:where(a, button, input, select, textarea, summary):focus-visible,
+.is-focus {
+  outline: var(--focus-ring-width) solid var(--color-accent);
+  outline-offset: var(--focus-ring-offset);
+}
+.kk-on-dark :where(a, button, input):focus-visible,
+.kk-on-dark .is-focus { outline-color: var(--color-accent-on-dark); }
+
+/* ── Nupud ────────────────────────────────────────── */
+.kk-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-xs);
+  min-height: var(--control-height);
+  padding: 0 28px;
+  border-radius: var(--radius-pill);
+  border: 2px solid transparent;
+  font-family: var(--font-body); font-size: var(--text-button); font-weight: 600; line-height: 1.2;
+  text-decoration: none; cursor: pointer;
+  transition: background-color .15s ease, color .15s ease, border-color .15s ease;
+}
+.kk-btn .kk-arrow { transition: transform .15s ease; }
+.kk-btn:hover .kk-arrow { transform: translateX(3px); }
+.kk-btn--primary { background: var(--color-primary); color: var(--color-text-on-dark); }
+.kk-btn--primary:hover, .kk-btn--primary.is-hover { background: var(--color-primary-dark); color: var(--color-text-on-dark); }
+.kk-btn--secondary { background: transparent; color: var(--color-primary); border-color: var(--color-primary); }
+.kk-btn--secondary:hover, .kk-btn--secondary.is-hover { background: var(--color-bg-alt); color: var(--color-primary); }
+.kk-btn--on-dark { background: var(--color-accent-on-dark); color: var(--color-primary); }
+.kk-btn--on-dark:hover { background: var(--color-bg); color: var(--color-primary); }
+.kk-btn--ghost-on-dark { background: transparent; color: var(--color-text-on-dark); border-color: var(--color-text-on-dark); }
+.kk-btn--ghost-on-dark:hover { background: var(--color-text-on-dark); color: var(--color-primary); }
+.kk-btn--small { min-height: 44px; padding: 0 20px; font-size: 16px; }
+
+/* ── Sildid ───────────────────────────────────────── */
+.kk-tag {
+  display: inline-flex; align-items: center;
+  padding: 2px 12px; border-radius: var(--radius-pill);
+  font-size: var(--text-small); font-weight: 600; line-height: 1.6;
+}
+.kk-tag--free { background: var(--color-secondary-light); color: var(--color-secondary); }
+.kk-tag--inquiry { background: var(--color-accent-light); color: var(--color-accent); }
+
+/* ── Kaart ────────────────────────────────────────── */
+.kk-card {
+  position: relative; display: flex; flex-direction: column;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-l);
+  overflow: hidden;
+  transition: box-shadow .2s ease, transform .2s ease;
+}
+.kk-card:hover, .kk-card.is-hover { box-shadow: var(--shadow-card-hover); transform: translateY(-2px); }
+.kk-card__media { aspect-ratio: 4 / 3; overflow: hidden; background: var(--color-bg-alt); }
+.kk-card__media img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.kk-card__body { display: flex; flex-direction: column; gap: var(--space-s); padding: var(--space-m); flex: 1; }
+.kk-card__meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-xs) var(--space-s); }
+.kk-card__text { margin: 0; color: var(--color-text); font-size: 17px; line-height: 1.55; }
+.kk-card__action { margin-top: auto; font-weight: 600; font-size: var(--text-button); color: var(--color-primary); text-decoration: none; }
+.kk-card__action::after { content: ""; position: absolute; inset: 0; }   /* kogu kaart on klõpsatav */
+.kk-card__action:hover { color: var(--color-accent); text-decoration: underline; }
+
+/* ── Päis ─────────────────────────────────────────── */
+.kk-header { background: var(--color-bg); border-bottom: 1px solid var(--color-border); }
+.kk-header__inner {
+  max-width: var(--container); margin: 0 auto; padding: 0 var(--space-m);
+  min-height: var(--header-height);
+  display: flex; align-items: center; gap: var(--space-l);
+}
+.kk-logo { display: inline-flex; color: var(--color-primary); }
+.kk-logo svg { height: 40px; width: auto; display: block; }
+.kk-nav { display: flex; gap: var(--space-m); margin-left: auto; }
+.kk-nav a { color: var(--color-text); text-decoration: none; font-weight: 600; font-size: 16px; padding: 6px 0; border-bottom: 2px solid transparent; }
+.kk-nav a:hover { color: var(--color-primary); border-bottom-color: var(--color-border-strong); }
+.kk-nav a[aria-current="page"] { color: var(--color-primary); border-bottom-color: var(--color-accent); }
+.kk-menu-btn {
+  display: none; margin-left: auto; align-items: center; gap: var(--space-xs);
+  min-height: 44px; padding: 0 16px; border-radius: var(--radius-pill);
+  border: 2px solid var(--color-primary); background: transparent; color: var(--color-primary);
+  font: 600 16px var(--font-body); cursor: pointer;
+}
+.kk-header--mobile .kk-nav, .kk-header--mobile .kk-header__cta { display: none; }
+.kk-header--mobile .kk-menu-btn { display: inline-flex; }
+.kk-header--mobile .kk-logo svg { height: 34px; }
+@media (max-width: 960px) {
+  .kk-header .kk-nav, .kk-header .kk-header__cta { display: none; }
+  .kk-header .kk-menu-btn { display: inline-flex; }
+}
+
+/* ── Jalus ────────────────────────────────────────── */
+.kk-footer { background: var(--color-primary); color: var(--color-text-on-dark); }
+.kk-footer a { color: var(--color-text-on-dark); text-decoration: none; }
+.kk-footer a:hover { color: var(--color-accent-on-dark); text-decoration: underline; }
+.kk-footer__inner { max-width: var(--container); margin: 0 auto; padding: var(--space-xl) var(--space-m) var(--space-l); }
+.kk-footer__grid { display: grid; grid-template-columns: 1.2fr 1fr 1fr 1fr 1.9fr; gap: var(--space-l); }
+.kk-footer .kk-logo { color: var(--color-text-on-dark); }
+.kk-footer h2 { font-family: var(--font-body); font-size: var(--text-small); font-weight: 600; color: var(--color-accent-on-dark); margin: 0 0 var(--space-s); letter-spacing: 0.02em; }
+.kk-footer ul { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-xs); font-size: 16px; }
+.kk-footer__note { font-size: var(--text-small); line-height: var(--leading-small); margin: 0 0 var(--space-s); }
+.kk-footer__news { display: flex; gap: var(--space-xs); }
+.kk-footer__news .kk-input { flex: 1; min-width: 0; padding: 12px 14px; border-color: var(--color-bg); }
+.kk-footer__bottom {
+  margin-top: var(--space-xl); padding-top: var(--space-m); border-top: 1px solid rgba(250, 246, 239, 0.25);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: var(--space-s); font-size: var(--text-small);
+}
+@media (max-width: 960px) { .kk-footer__grid { grid-template-columns: 1fr 1fr; } }
+
+/* ── Vorm ─────────────────────────────────────────── */
+.kk-form { display: grid; gap: var(--space-m); }
+.kk-field { display: grid; gap: 6px; align-content: start; }
+.kk-label { font-size: var(--text-small); font-weight: 600; line-height: 1.4; color: var(--color-text); }
+.kk-label .kk-req { color: var(--color-accent); }
+.kk-input, .kk-select, .kk-textarea {
+  box-sizing: border-box; width: 100%;
+  min-height: var(--control-height); padding: 12px 16px;
+  background: var(--color-surface); color: var(--color-text);
+  border: 1.5px solid var(--color-border-strong); border-radius: var(--radius-m);
+  font-family: var(--font-body); font-size: var(--text-body); line-height: 1.4;
+}
+.kk-textarea { min-height: 140px; resize: vertical; }
+.kk-input::placeholder, .kk-textarea::placeholder { color: var(--color-text-muted); }
+.kk-input:focus-visible, .kk-select:focus-visible, .kk-textarea:focus-visible, .kk-input.is-focus {
+  border-color: var(--color-primary);
+  outline: var(--focus-ring-width) solid var(--color-accent); outline-offset: var(--focus-ring-offset);
+}
+.kk-hint { font-size: var(--text-small); line-height: var(--leading-small); color: var(--color-text-muted); }
+.kk-field.is-invalid .kk-input { border-color: var(--color-error); border-width: 2px; }
+.kk-error { display: flex; gap: 6px; align-items: flex-start; font-size: var(--text-small); font-weight: 600; color: var(--color-error); }
+.kk-error svg { flex: none; margin-top: 2px; }
+.kk-checks { display: flex; flex-wrap: wrap; gap: var(--space-xs) var(--space-m); border: 0; margin: 0; padding: 0; }
+.kk-checks legend { padding: 0; margin-bottom: 6px; }
+.kk-check { display: inline-flex; align-items: center; gap: var(--space-xs); min-height: 44px; font-size: 17px; cursor: pointer; }
+.kk-check input { width: 22px; height: 22px; margin: 0; accent-color: var(--color-primary); }
+.kk-notice { padding: var(--space-s) var(--space-m); border-radius: var(--radius-m); font-size: 16px; }
+.kk-notice--success { background: var(--color-secondary-light); color: var(--color-secondary); font-weight: 600; }

@@ -1,0 +1,75 @@
+/* Kungla Koolitused — disainisüsteemi muutujad
+   Fondid: <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet"> */
+:root {
+  /* ── Värvid ───────────────────────────────────────────── */
+  /* Põhivärv */
+  --color-primary: #17335A;         /* Kungla sinine: logo, pealkirjad, põhinupp, lingid, jalus */
+  --color-primary-dark: #0F2441;    /* Kungla sinine, tume: põhinupu hover / aktiivne */
+
+  /* Lisavärv 1: Lõke (soe rõhk) */
+  --color-accent: #A9481F;          /* Lõke: rõhusõna, ülapealkiri, ikoonid, fookusrõngas */
+  --color-accent-light: #F7E2D4;    /* Lõke, hele: esiletõstu ja sildi taust */
+  --color-accent-on-dark: #F2BD8D;  /* Kuma: rõhk ja nupp sinisel taustal */
+
+  /* Lisavärv 2: Kadakas (looduslähedane) */
+  --color-secondary: #4A6A4C;       /* Kadakas: silt „Tasuta“, linnukesed, õnnestumine */
+  --color-secondary-light: #E0E8D8; /* Kadakas, hele: „Tasuta“ sildi taust */
+
+  /* Neutraalsed (soojad) */
+  --color-bg: #FAF6EF;              /* Paekivi: lehe taust */
+  --color-bg-alt: #F1E8DA;          /* Liiv: vahelduva sektsiooni taust */
+  --color-surface: #FFFDF9;         /* Lina: kaart, vormiväli */
+  --color-border: #E4D9C8;          /* Joon: kaardi serv, eraldusjoon */
+  --color-border-strong: #8A7B69;   /* Joon, tugev: vormivälja serv (3:1) */
+  --color-text: #2A2621;            /* Tekst: sisutekst */
+  --color-text-muted: #625A51;      /* Tekst, väike: abitekst, kuupäevad */
+  --color-text-on-dark: #FAF6EF;    /* Tekst sinisel: tekst sinisel taustal */
+  --color-error: #9B2C24;           /* Viga: veateade (alati koos tekstiga) */
+
+  /* ── Fondid (Google Fonts) ─────────────────────────────── */
+  --font-heading: "Instrument Serif", Georgia, "Times New Roman", serif;
+  --font-body: Figtree, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  /* Suurused */
+  --text-h1: clamp(2.75rem, 1.6rem + 4.2vw, 4.5rem);   /* 44 → 72px */
+  --text-h2: clamp(2rem, 1.45rem + 2.2vw, 3rem);       /* 32 → 48px */
+  --text-h3: 1.375rem;                                 /* 22px */
+  --text-lead: 1.25rem;                                /* 20px */
+  --text-body: 1.125rem;                               /* 18px */
+  --text-small: 0.9375rem;                             /* 15px */
+  --text-button: 1.0625rem;                            /* 17px */
+
+  /* Reavahe ja paksus */
+  --leading-h1: 1.05;
+  --leading-h2: 1.1;
+  --leading-h3: 1.3;
+  --leading-body: 1.6;
+  --leading-small: 1.5;
+  --weight-regular: 400;
+  --weight-semibold: 600;
+
+  /* ── Vahed ─────────────────────────────────────────────── */
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-s: 16px;
+  --space-m: 24px;
+  --space-l: 40px;
+  --space-xl: 64px;
+  --space-2xl: 96px;
+
+  /* ── Raadiused ja varjud ───────────────────────────────── */
+  --radius-s: 8px;
+  --radius-m: 12px;
+  --radius-l: 20px;
+  --radius-pill: 999px;
+  --shadow-card: 0 1px 2px rgba(42, 38, 33, 0.06), 0 8px 24px rgba(42, 38, 33, 0.08);
+  --shadow-card-hover: 0 2px 4px rgba(42, 38, 33, 0.08), 0 16px 32px rgba(42, 38, 33, 0.12);
+
+  /* ── Paigutus ja ligipääsetavus ────────────────────────── */
+  --container: 1200px;
+  --measure: 65ch;
+  --control-height: 52px;
+  --header-height: 80px;
+  --focus-ring-width: 3px;
+  --focus-ring-offset: 2px;
+}
